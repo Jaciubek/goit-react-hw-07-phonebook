@@ -1,50 +1,47 @@
 import styles from './ContactForm.module.css';
 import Button from 'components/Button/Button';
 import React from 'react';
-import { nanoid } from '@reduxjs/toolkit';
-import { useDispatch, useSelector } from 'react-redux';
-import { addContact } from 'redux/actions/contactsActions';
+import { useGetContactsQuery, useAddContactMutation } from 'services/contactsApi';
 
-
-
-export const ContactForm = () => {
+const ContactForm = () => {
   const { contactForm, contactForm__field, contactLabel, contactInput } = styles;
 
-  const contacts = useSelector(state => state.contacts);
-  const dispatch = useDispatch();
+  const { data: contacts = [] } = useGetContactsQuery();
+  const [addContact, { isLoading }] = useAddContactMutation();
 
-  const addNewContact = evt => {
-    evt.preventDefault();
+  const onSubmit = async e => {
+    e.preventDefault();
 
-    const form = evt.target;
+    const form = e.target;
     const name = form.name.value;
     const number = form.number.value;
-
-    const newContact = {
-      id: nanoid(),
-      name,
-      number,
-    };
 
     if (contacts.some(contact => contact.name === name)) {
       alert(`${name} is already in contacts`);
       return;
     }
 
-    if (contacts.some(contact => contact.number === number)) {
-      const filteredNumber = contacts.filter(
-        contact => contact.number === number
-      )[0].name;
-      alert(`${number} is already in contact with ${filteredNumber} `);
+    if (contacts.some(contact => contact.phone === number)) {
+      const [filteredNumber] = contacts.filter(
+        contact => contact.phone === number
+      );
+      alert(`${number} is already in contact with ${filteredNumber.name} `);
       return;
     }
 
-    dispatch(addContact(newContact));
+    try {
+      await addContact({
+        name,
+        phone: number,
+      });
+    } catch (error) {
+      alert(`Failed to save the contact`);
+    }
     form.reset();
   };
 
   return (
-    <form className={contactForm} onSubmit={addNewContact}>
+    <form className={contactForm} onSubmit={onSubmit}>
       <div className={contactForm__field}>
         <label htmlFor="contactName" className={contactLabel}>
           Name
@@ -54,7 +51,7 @@ export const ContactForm = () => {
           id="contactName"
           type="text"
           name="name"
-          placeholder='Enter your name...'
+          placeholder='Enter name...'
           pattern="^[a-zA-Zа-яА-Я]+(([' -][a-zA-Zа-яА-Я ])?[a-zA-Zа-яА-Я]*)*$"
           title="Name may contain only letters, apostrophe, dash and spaces. For example Adrian, Jacob Mercer, Charles de Batz de Castelmore d'Artagnan"
           required
@@ -69,15 +66,18 @@ export const ContactForm = () => {
           id="contactTel"
           type="tel"
           name="number"
-          placeholder='Enter your number...'
+          placeholder='Enter number...'
           pattern="\+?\d{1,4}?[-.\s]?\(?\d{1,3}?\)?[-.\s]?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,9}"
           title="Phone number must be digits and can contain spaces, dashes, parentheses and can start with +"
           required
         />
       </div>
-
-      <Button type="submit" title="ADD CONTACT"></Button>
+      <Button
+        type="submit"
+        title={isLoading ? 'ADDING...' : 'ADD CONTACT'}
+      ></Button>
     </form>
   );
 };
 
+export default ContactForm;

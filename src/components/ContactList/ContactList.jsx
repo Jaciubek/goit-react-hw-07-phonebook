@@ -1,48 +1,62 @@
 import styles from './ContactList.module.css';
 import { Notification } from 'components/Notification/Notification';
-import React from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { deleteContact } from 'redux/actions/contactsActions';
+import { useMemo } from 'react';
+import { useSelector } from 'react-redux';
+import { nanoid } from 'nanoid';
+import Loader from 'components/Loader/Loader';
+import { useGetContactsQuery,useDeleteContactMutation } from 'services/contactsApi';
 
-export const ContactList = () => {
+const ContactList = () => {
   const { contactList__wrapper, contactList__text, contactList__button } = styles;
 
-  const contacts = useSelector(state => state.contacts);
+  const {
+    data: contacts = [],
+    isLoading,
+    isSuccess,
+    isError,
+    error,
+  } = useGetContactsQuery();
+
   const filter = useSelector(state => state.filter);
+  const [deleteItemContact] = useDeleteContactMutation();
 
-  const filteredContacts = contacts.filter(c =>
-    c.name.toLowerCase().includes(filter)
-  );
+  const filteredContacts = useMemo(() => {
+    return contacts.filter(c => c.name.toLowerCase().includes(filter));
+  }, [contacts, filter]);
 
-  const dispatch = useDispatch();
+  let content;
 
-  const deleteItemContact = id => {
-    return dispatch(deleteContact(id));
-  };
+  if (isLoading) {
+    content = <Loader />;
+  } else if (isSuccess) {
+    filteredContacts.length !== 0
+      ? (content = (
+          <ul className={contactList__wrapper}>
+            {filteredContacts.map(contact => {
+              return (
+                <li className={contactList__text} key={nanoid()}>
+                  <span>
+                    {`${contact.name}:
+               ${contact.phone}`}
+                  </span>
+                  <button
+                    type="button"
+                    className={contactList__button}
+                    onClick={() => deleteItemContact({ id: contact.id })}
+                  >
+                    Delete
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        ))
+      : (content = <Notification message="Your phonebook is empty" />);
+  } else if (isError) {
+    content = <Notification message={error} />;
+  }
 
-  return (
-    <>
-      {filteredContacts.length > 0 ? (
-        <ul className={contactList__wrapper}>
-          {filteredContacts.map(contact => {
-            return (
-              <li className={contactList__text} key={contact.id}>
-                <span>{`${contact.name}: ${contact.number}`}</span>
-                <button
-                  type="button"
-                  className={contactList__button}
-                  onClick={() => deleteItemContact(contact.id)}
-                >
-                  Delete
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <Notification message="You don't have this contact" />
-      )}
-    </>
-  );
+  return <>{content}</>;
 };
 
+export default ContactList;
